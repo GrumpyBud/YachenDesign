@@ -126,10 +126,10 @@ def compileRobot = tasks.named('compileJava')
 def robotCheckClasspath = files(compileRobot.flatMap { it.destinationDirectory }) + configurations.runtimeClasspath
 def validateAutos = tasks.register('validateAutos', JavaExec) {
     group = 'verification'
-    description = 'Validates each BLine path referenced by the autonomous chooser.'
+    description = 'Validates every Java-defined and drawn BLine path.'
     dependsOn compileRobot
     classpath = robotCheckClasspath
-    mainClass = 'first.robot.AutoRoutines'
+    mainClass = 'first.robot.auto.AutoRoutines'
     args layout.projectDirectory.dir('src/main/deploy/autos').asFile.absolutePath
 }
 tasks.named('check') {

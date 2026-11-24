@@ -1,5 +1,6 @@
 package first.robot;
 
+import first.robot.auto.AutoRoutines;
 import first.robot.generated.TunerConstants;
 import first.robot.subsystems.Choreographer;
 import first.robot.subsystems.Choreographer.State;
