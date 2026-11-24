@@ -12,8 +12,8 @@ import org.wpilib.math.geometry.Transform3d;
 public final class VisionConstants {
   private VisionConstants() {}
 
-  // Practice field for the starter. Set the actual field before enabling real cameras.
-  public static final Field aprilTagLayout = Fields.FRC_2026_REBUILT_WELDED.loadField();
+  // 2023 Charged Up field. Set the actual field before enabling real cameras.
+  public static final Field aprilTagLayout = Fields.FRC_2023_CHARGED_UP.loadField();
 
   public record PhotonCameraConfig(String name, Transform3d robotToCamera) {}
 

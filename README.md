@@ -12,6 +12,28 @@ Java 25 project for SystemCore with WPILib 2027.0.0 Alpha 8, Commands v3, Advant
 
 In teleop, gamepad 0 uses the left stick for field-relative translation, right stick X for rotation, the west face button (Xbox X) for X-lock while held, and Back to make the current heading the driver's forward direction. The estimated field pose keeps its AprilTag reference.
 
+## Elevator, arm, and claw (simulation only)
+
+The 2023 Charged Up superstructure is a forward-tilted continuous elevator (two Kraken X60s), an arm pivoting on the carriage (one Kraken X60), and a roller claw (one Kraken X44). Its geometry and three positions come from the team's CAD exports. The [superstructure hardware record](docs/robot/hardware/superstructure.md) lists each value's source and which values are still estimates. Only simulation IO exists. On a real robot these mechanisms report as disconnected and never move.
+
+| Gamepad 0 | Action |
+| --- | --- |
+| South face (Xbox A) | Stow |
+| East face (Xbox B) | Intake position |
+| North face (Xbox Y) | Score position |
+| Right trigger (held) | Claw intake |
+| Left trigger (held) | Claw eject |
+
+Position buttons act in teleop only. The claw runs only while you hold a trigger, and after each enable you must release the triggers before they work again. The elevator and arm keep their goal through autonomous and disable. They go neutral while disabled, and after you enable they move back to the goal from wherever they are. In simulation the unpowered arm falls under gravity while disabled. With `TUNING_MODE` on, each position's elevator meters and arm degrees appear under `/Tuning/Choreographer`, and the joints' gains under `/Tuning/Elevator` and `/Tuning/Arm`.
+
+### 3D view in AdvantageScope
+
+1. In AdvantageScope, choose **Help > Use Custom Assets Folder** and select this repository's [`advantagescope`](advantagescope) folder.
+2. Open a 3D Field tab, choose the **2023 Field**, and drag `RealOutputs/Odometry/Robot` onto it as a Robot. Choose the **YachenDesign 2023** model.
+3. Drag `RealOutputs/Choreographer/ComponentPoses` onto that robot as its components. To see where the mechanisms are heading, add `GoalComponentPoses` as a ghost.
+
+The models are meshed from the stowed CAD export with [`tools/cad`](tools/cad). Component 0 is the first stage, 1 the carriage and pivot mount, and 2 the arm and claw.
+
 ## Swerve characterization
 
 Select Test (Utility) mode on the Driver Station and enable with both bumpers released. Use gamepad 0.
@@ -36,7 +58,7 @@ Select **Auto Routine** in a WPILib 2027 dashboard with Selectable support befor
 
 Motion examples share a blue-origin practice start of (2 m, 4 m, 0°). BLine transforms the path and its reset pose together for red. Each example stops on completion, disable, or a 5 s timeout. Use the calibration runs to compare measured travel and angle against field marks and review `Auto/FinalPose`, `Auto/Status`, and `FollowPath/*` in AdvantageScope. Odometry reports the estimated pose. Measure actual travel independently when calibrating.
 
-To add a routine, export a path from [BLine Web](https://web-beta.bline-web.pages.dev/) into [autos/paths](src/main/deploy/autos/paths), then add one row in [AutoRoutines.java](src/main/java/first/robot/AutoRoutines.java) with its display name, filename without `.json`, and timeout in seconds. Keep the authored start as the first waypoint. Shared speed, acceleration, and endpoint tolerances live in [autos/config.json](src/main/deploy/autos/config.json). The starter routines and vision use the 2026 welded practice-field layout. Update the layout, alliance symmetry, and authored starts together for a different field.
+To add a routine, export a path from [BLine Web](https://web-beta.bline-web.pages.dev/) into [autos/paths](src/main/deploy/autos/paths), then add one row in [AutoRoutines.java](src/main/java/first/robot/AutoRoutines.java) with its display name, filename without `.json`, and timeout in seconds. Keep the authored start as the first waypoint. Shared speed, acceleration, and endpoint tolerances live in [autos/config.json](src/main/deploy/autos/config.json). Vision and path flipping use the 2023 Charged Up layout, and BLine mirrors paths for red. The starter paths were authored for a generic practice start. Update the layout, alliance symmetry, and authored starts together for a different field.
 
 Set `TUNING_MODE` in [Constants.java](src/main/java/first/robot/Constants.java) during tuning. AdvantageScope can edit the three BLine P gains under `/Tuning/BLine`. AdvantageKit records the edits and reports effective gains under `Auto/Tuning`. Use the same tuning-mode setting when replaying a run.
 

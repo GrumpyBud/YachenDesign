@@ -1,0 +1,13 @@
+{
+  "name": "YachenDesign 2023",
+  "isFTC": false,
+  "disableSimplification": false,
+  "rotations": [],
+  "position": [0, 0, 0],
+  "cameras": [],
+  "components": [
+    { "zeroedRotations": [], "zeroedPosition": [0, 0, 0] },
+    { "zeroedRotations": [], "zeroedPosition": [0, 0, 0] },
+    { "zeroedRotations": [], "zeroedPosition": [0, 0, 0] }
+  ]
+}

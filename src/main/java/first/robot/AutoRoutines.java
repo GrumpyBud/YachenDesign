@@ -95,7 +95,8 @@ final class AutoRoutines {
     var field = VisionConstants.aprilTagLayout;
     FlippingUtil.fieldSizeX = field.getFieldLength();
     FlippingUtil.fieldSizeY = field.getFieldWidth();
-    FlippingUtil.symmetryType = FlippingUtil.FieldSymmetry.kRotational;
+    // 2023 Charged Up mirrors the red alliance across the field center line.
+    FlippingUtil.symmetryType = FlippingUtil.FieldSymmetry.kMirrored;
     follower =
         new FollowPath.Builder(
                 DriveType.SWERVE,

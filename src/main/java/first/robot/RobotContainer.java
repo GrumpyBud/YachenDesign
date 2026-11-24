@@ -3,12 +3,21 @@ package first.robot;
 import first.robot.generated.TunerConstants;
 import first.robot.subsystems.Choreographer;
 import first.robot.subsystems.Choreographer.State;
+import first.robot.subsystems.arm.Arm;
+import first.robot.subsystems.arm.ArmIO;
+import first.robot.subsystems.arm.ArmIOSim;
+import first.robot.subsystems.claw.Claw;
+import first.robot.subsystems.claw.ClawIO;
+import first.robot.subsystems.claw.ClawIOSim;
 import first.robot.subsystems.drive.Drive;
 import first.robot.subsystems.drive.GyroIO;
 import first.robot.subsystems.drive.GyroIOPigeon2;
 import first.robot.subsystems.drive.ModuleIO;
 import first.robot.subsystems.drive.ModuleIOSim;
 import first.robot.subsystems.drive.ModuleIOTalonFX;
+import first.robot.subsystems.elevator.Elevator;
+import first.robot.subsystems.elevator.ElevatorIO;
+import first.robot.subsystems.elevator.ElevatorIOSim;
 import first.robot.subsystems.vision.Vision;
 import first.robot.subsystems.vision.VisionConstants;
 import first.robot.subsystems.vision.VisionIO;
@@ -24,7 +33,7 @@ import org.wpilib.util.Alert.Level;
 /** Wires up subsystems, their IO, driver controls, and autonomous routines. */
 public final class RobotContainer {
   private final Drive drive;
-  private final DriveControls controls;
+  private final Controls controls = new Controls();
   private final AutoRoutines autos;
   private final Vision vision;
   private final Choreographer choreographer;
@@ -64,11 +73,20 @@ public final class RobotContainer {
         };
     configurationAlert.set(drive == null);
     Logger.recordOutput("Drive/Configured", drive != null);
-    controls = drive == null ? null : new DriveControls(drive);
     autos = drive == null ? null : new AutoRoutines(drive);
     vision = drive == null ? null : createVision(drive);
-    choreographer = drive == null ? null : new Choreographer(drive);
-    subsystems = drive == null ? List.of() : List.of(drive);
+    if (drive == null) {
+      choreographer = null;
+      subsystems = List.of();
+      return;
+    }
+    // Only simulation IO exists so far; real mode gets disconnected placeholders.
+    boolean sim = Constants.currentMode == Constants.Mode.SIM;
+    var elevator = new Elevator(sim ? new ElevatorIOSim() : new ElevatorIO() {});
+    var arm = new Arm(sim ? new ArmIOSim() : new ArmIO() {});
+    var claw = new Claw(sim ? new ClawIOSim() : new ClawIO() {});
+    choreographer = new Choreographer(drive, elevator, arm, claw);
+    subsystems = List.of(drive, elevator, arm, claw);
   }
 
   private static Vision createVision(Drive drive) {
@@ -105,14 +123,13 @@ public final class RobotContainer {
               controls.testEnabled(),
               controls.connected());
       autos.periodic(state == State.AUTONOMOUS);
-      controls.periodic(state);
+      choreographer.setDriverRequest(controls.request(state));
     }
   }
 
   void periodicAfterScheduler() {
     if (choreographer != null) {
-      choreographer.enforceOutputInterlocks();
-      controls.characterize(choreographer.canCharacterize());
+      choreographer.applyOutputs();
     }
     subsystems.forEach(FullSubsystem::periodicAfterScheduler);
   }
