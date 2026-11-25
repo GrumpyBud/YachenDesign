@@ -61,6 +61,27 @@ tasks.register('replayWatch', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
+// Compiles the robot and writes what tools/sim/watch.ps1 needs to launch the simulator directly,
+// so a restart skips Gradle's own startup.
+tasks.register('prepareSim') {
+    group = 'application'
+    description = 'Compiles the robot and writes the simulator classpath for tools/sim/watch.ps1.'
+    dependsOn 'classes', 'extractReleaseNative'
+    def classpath = sourceSets.main.runtimeClasspath
+    def dir = layout.buildDirectory.dir('sim')
+    def mainClass = ROBOT_MAIN_CLASS
+    inputs.files(classpath)
+    outputs.dir(dir)
+    doLast {
+        def d = dir.get().asFile
+        d.mkdirs()
+        new File(d, 'classpath.txt').text = classpath.asPath
+        new File(d, 'main-class.txt').text = mainClass
+        // The JDK running Gradle, which is the one `gradlew run` uses.
+        new File(d, 'java-home.txt').text = System.getProperty('java.home')
+    }
+}
+
 // Defining my dependencies. In this case, WPILib (+ friends), and vendor libraries.
 // Also defines JUnit 5.
 dependencies {

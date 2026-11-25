@@ -1,0 +1,24 @@
+{
+  // Run from Terminal > Run Task. See README "Build, simulate, and replay".
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Sim: run and restart on save",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/sim/watch.ps1"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "focus": true }
+    },
+    {
+      "label": "Sim: run and restart on save (with sim GUI)",
+      "type": "shell",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/tools/sim/watch.ps1", "-Gui"],
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "panel": "dedicated", "focus": true }
+    }
+  ]
+}
