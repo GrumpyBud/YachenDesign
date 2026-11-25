@@ -20,7 +20,7 @@ import org.wpilib.system.Timer;
 final class ScoringAuto {
   private ScoringAuto() {}
 
-  private static final double POSITION_TIMEOUT_SECONDS = 2.0;
+  private static final double POSITION_TIMEOUT_SECONDS = 5;
   private static final double EJECT_SECONDS = 0.3;
   private static final double PICKUP_CONFIRM_SECONDS = 0.25;
 
