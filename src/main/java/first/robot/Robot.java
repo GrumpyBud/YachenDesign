@@ -14,6 +14,8 @@ import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 import org.wpilib.command3.Scheduler;
+import org.wpilib.net.WebServer;
+import org.wpilib.system.Filesystem;
 
 public class Robot extends LoggedRobot {
   private final RobotContainer robotContainer;
@@ -42,6 +44,10 @@ public class Robot extends LoggedRobot {
       }
     }
     Logger.start();
+    if (Constants.currentMode != Constants.Mode.REPLAY) {
+      // Serves the deploy folder so Elastic can download elastic-layout.json from the robot.
+      WebServer.start(5800, Filesystem.getDeployDirectory().getPath());
+    }
     robotContainer = new RobotContainer();
   }
 
@@ -71,8 +77,22 @@ public class Robot extends LoggedRobot {
     diagnostics.periodic(scheduler);
   }
 
+  // The whole robot runs in robotPeriodic: the Choreographer picks its state from the current mode.
+  // These empty overrides only stop WPILib printing "Default ...Periodic() method... Override me!"
+  // the first time each mode runs.
+
   @Override
-  public void teleopPeriodic() {
-    // RobotContainer handles teleop controls in robotPeriodic alongside the shared robot loop.
-  }
+  public void disabledPeriodic() {}
+
+  @Override
+  public void autonomousPeriodic() {}
+
+  @Override
+  public void teleopPeriodic() {}
+
+  @Override
+  public void utilityPeriodic() {}
+
+  @Override
+  public void simulationPeriodic() {}
 }

@@ -3,12 +3,15 @@ package first.robot.auto;
 import static org.wpilib.units.Units.Seconds;
 
 import bline.commands.FollowPath;
+import bline.field.FlippingUtil;
 import bline.path.Path;
 import java.io.File;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.littletonrobotics.junction.Logger;
 import org.wpilib.command3.Command;
 import org.wpilib.command3.Coroutine;
+import org.wpilib.math.geometry.Pose2d;
 
 /**
  * The tools a routine body uses while it runs. Each step returns {@code false} after recording a
@@ -20,9 +23,9 @@ import org.wpilib.command3.Coroutine;
  * auto.follow(AutoPaths.backToScore());
  * }</pre>
  *
- * <p>The first path a routine follows resets odometry to its authored start (flipped for red).
- * Later paths start from the measured pose, so their first element should be where the previous
- * path ended.
+ * <p>The first path a routine follows resets odometry to its authored start (flipped for red),
+ * unless the routine already called {@link #startAt}. Later paths start from the measured pose, so
+ * their first element should be where the previous path ended.
  */
 public final class AutoContext {
   private final Coroutine co;
@@ -30,6 +33,9 @@ public final class AutoContext {
   private final File autosDirectory;
   private final BooleanSupplier pathFinished;
   private final Runnable clearPathFinished;
+  private final Consumer<Pose2d> resetPose;
+  private final BooleanSupplier redAlliance;
+  private boolean poseReset;
   private int segment;
   private String failure;
 
@@ -38,12 +44,38 @@ public final class AutoContext {
       FollowPath.Builder follower,
       File autosDirectory,
       BooleanSupplier pathFinished,
-      Runnable clearPathFinished) {
+      Runnable clearPathFinished,
+      Consumer<Pose2d> resetPose,
+      BooleanSupplier redAlliance) {
     this.co = co;
+    this.resetPose = resetPose;
+    this.redAlliance = redAlliance;
     this.follower = follower;
     this.autosDirectory = autosDirectory;
     this.pathFinished = pathFinished;
     this.clearPathFinished = clearPathFinished;
+  }
+
+  /**
+   * Resets odometry to a path's authored start (flipped for red) without driving. Use it when the
+   * routine acts before its first path, such as scoring a preload, so that work happens at the real
+   * starting pose. The next {@link #follow} then starts from the measured pose.
+   *
+   * @return false, with a fault recorded, if the path has no authored start
+   */
+  public boolean startAt(Path path) {
+    if (failure != null) {
+      return false;
+    }
+    var start = path.getAuthoredStartPose();
+    if (start.isEmpty()) {
+      return fail("startAt needs a path that begins with a waypoint");
+    }
+    var pose = redAlliance.getAsBoolean() ? FlippingUtil.flipFieldPose(start.get()) : start.get();
+    resetPose.accept(pose);
+    poseReset = true;
+    Logger.recordOutput("Auto/StartPose", pose);
+    return true;
   }
 
   /**
@@ -91,13 +123,17 @@ public final class AutoContext {
     if (!path.isValid()) {
       return fail("Invalid path: " + label);
     }
-    boolean first = segment == 1;
+    boolean first = !poseReset;
     if (first && path.getAuthoredStartPose().isEmpty()) {
       return fail("The first path must start with a waypoint: " + label);
     }
+    poseReset = true;
 
     Logger.recordOutput("Auto/Segment", label);
-    FollowPath built = follower.build(path);
+    // BLine's alliance flip always rotates the path about the field center. On a mirrored field
+    // (2023), red is a reflection across the center line, which is that rotation plus BLine's
+    // width mirror: (x, y, theta) -> (length - x, y, pi - theta).
+    FollowPath built = follower.build(path).withShouldMirror(this::mirrorForRed);
     FollowPath command = first ? built.withPoseReset() : built;
     Command segmentCommand =
         Double.isFinite(timeoutSeconds) ? command.withTimeout(Seconds.of(timeoutSeconds)) : command;
@@ -110,6 +146,11 @@ public final class AutoContext {
       return fail("Path did not reach its endpoint: " + label);
     }
     return true;
+  }
+
+  private boolean mirrorForRed() {
+    return redAlliance.getAsBoolean()
+        && FlippingUtil.symmetryType == FlippingUtil.FieldSymmetry.kMirrored;
   }
 
   /** Pauses the routine. The drivetrain receives no path output while waiting. */

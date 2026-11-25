@@ -65,7 +65,12 @@ public class Arm extends FullSubsystem {
   }
 
   public boolean atGoal() {
-    return inputs.connected && Math.abs(inputs.positionRad - goalRad) < AT_GOAL_TOLERANCE_RAD;
+    return isNear(goalRad);
+  }
+
+  /** Whether the measured angle is within tolerance of an angle, with a connected motor. */
+  public boolean isNear(double positionRad) {
+    return inputs.connected && Math.abs(inputs.positionRad - positionRad) < AT_GOAL_TOLERANCE_RAD;
   }
 
   @Override

@@ -7,6 +7,9 @@ import bline.field.FlippingUtil;
 import bline.following.DriveType;
 import bline.path.Path;
 import first.robot.Constants;
+import first.robot.subsystems.Choreographer;
+import first.robot.subsystems.Choreographer.Source;
+import first.robot.subsystems.claw.Claw;
 import first.robot.subsystems.drive.Drive;
 import first.robot.subsystems.vision.VisionConstants;
 import first.robot.util.LoggedTunableNumber;
@@ -35,7 +38,7 @@ import org.wpilib.util.Alert.Level;
  * Runs the selected autonomous routine. Routines come from two places:
  *
  * <ul>
- *   <li>Java routines in {@link Autos#routines()}, built from {@link AutoPaths}.
+ *   <li>Java routines in {@link Autos#routines}, built from {@link AutoPaths} and scoring plans.
  *   <li>Every path drawn in BLine Web and exported to {@code deploy/autos/paths/}, listed as
  *       "Drawn: name" with no code changes.
  * </ul>
@@ -55,7 +58,7 @@ public final class AutoRoutines {
 
     var names = new HashSet<String>(List.of(DO_NOTHING.name()));
     try {
-      for (var routine : Autos.routines()) {
+      for (var routine : Autos.routines(null, null)) {
         if (!names.add(routine.name())) {
           errors.add("Duplicate routine name: " + routine.name());
         }
@@ -63,6 +66,16 @@ public final class AutoRoutines {
     } catch (RuntimeException error) {
       errors.add("Autos.routines(): " + error.getMessage());
     }
+
+    // Every leg a scoring plan can generate, for any node and staged piece.
+    for (var leg : CyclePaths.allLegs().entrySet()) {
+      try {
+        checkPath(leg.getValue());
+      } catch (RuntimeException error) {
+        errors.add("CyclePaths." + leg.getKey() + ": " + error.getMessage());
+      }
+    }
+    System.out.println("Validated " + CyclePaths.allLegs().size() + " scoring plan legs");
 
     for (Method method : javaPathMethods()) {
       String label = "AutoPaths." + method.getName() + "()";
@@ -129,16 +142,18 @@ public final class AutoRoutines {
   }
 
   private final Drive drive;
+  private final Choreographer robot;
+  private AutoOptions options;
   private final File autosDirectory = new File(Filesystem.getDeployDirectory(), "autos");
   private final LoggedNetworkChooser<AutoRoutine> chooser =
       new LoggedNetworkChooser<>("Auto Routine");
   private final Scheduler scheduler = Scheduler.getDefault();
   private final AutoInputsAutoLogged inputs = new AutoInputsAutoLogged();
   private final LoggedTunableNumber translationKp =
-      new LoggedTunableNumber("BLine/TranslationKp", 2);
-  private final LoggedTunableNumber rotationKp = new LoggedTunableNumber("BLine/RotationKp", 3);
+      new LoggedTunableNumber("BLine/TranslationKp", 2.5);
+  private final LoggedTunableNumber rotationKp = new LoggedTunableNumber("BLine/RotationKp", 4);
   private final LoggedTunableNumber crossTrackKp =
-      new LoggedTunableNumber("BLine/CrossTrackKp", 1.5);
+      new LoggedTunableNumber("BLine/CrossTrackKp", 2.0);
   private final PIDController translationController = new PIDController(0, 0, 0);
   private final PIDController rotationController = new PIDController(0, 0, 0);
   private final PIDController crossTrackController = new PIDController(0, 0, 0);
@@ -152,8 +167,9 @@ public final class AutoRoutines {
   private String lastStatus = "Idle";
   private final List<AutoRoutine> routines = new ArrayList<>();
 
-  public AutoRoutines(Drive drive) {
+  public AutoRoutines(Drive drive, Choreographer robot) {
     this.drive = drive;
+    this.robot = robot;
 
     // Java paths use config.json's speed and tolerance defaults, the same as drawn paths.
     try {
@@ -164,14 +180,15 @@ public final class AutoRoutines {
     }
 
     chooser.addDefault(DO_NOTHING.name(), DO_NOTHING);
-    routines.addAll(Autos.routines());
+    options = new AutoOptions();
+    routines.addAll(Autos.routines(robot, options));
     for (String name : drawnPathNames(autosDirectory)) {
       routines.add(
           new AutoRoutine(
               DRAWN_PREFIX + name, DRAWN_PATH_TIMEOUT_SECONDS, auto -> auto.followDrawn(name)));
     }
     routines.forEach(routine -> chooser.add(routine.name(), routine));
-    Autos.registerEvents();
+    Autos.registerEvents(robot);
 
     var field = VisionConstants.aprilTagLayout;
     FlippingUtil.fieldSizeX = field.getFieldLength();
@@ -270,7 +287,9 @@ public final class AutoRoutines {
                           follower,
                           autosDirectory,
                           () -> pathFinished,
-                          () -> pathFinished = false);
+                          () -> pathFinished = false,
+                          drive::setAutoStartPose,
+                          () -> inputs.redAlliance);
                   context[0] = auto;
                   try {
                     routine.body().run(auto);
@@ -297,7 +316,12 @@ public final class AutoRoutines {
                 status("Completed");
               }
             })
-        .whenExited(drive::neutral)
+        .whenExited(
+            () -> {
+              drive.neutral();
+              // Leaves the requested position alone so the joints hold where the routine ended.
+              robot.requestClaw(Source.AUTO, Claw.Request.STOP);
+            })
         .named(routine.name());
   }
 

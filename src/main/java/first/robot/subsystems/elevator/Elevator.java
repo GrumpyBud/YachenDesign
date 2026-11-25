@@ -71,8 +71,13 @@ public class Elevator extends FullSubsystem {
 
   /** At goal only with a connected leader, whose encoder is the position source. */
   public boolean atGoal() {
+    return isNear(goalMeters);
+  }
+
+  /** Whether the measured travel is within tolerance of a position, with a connected leader. */
+  public boolean isNear(double positionMeters) {
     return inputs.leaderConnected
-        && Math.abs(inputs.positionMeters - goalMeters) < AT_GOAL_TOLERANCE_METERS;
+        && Math.abs(inputs.positionMeters - positionMeters) < AT_GOAL_TOLERANCE_METERS;
   }
 
   @Override

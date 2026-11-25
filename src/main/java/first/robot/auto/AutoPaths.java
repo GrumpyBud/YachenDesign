@@ -1,10 +1,7 @@
 package first.robot.auto;
 
 import bline.path.Path;
-import bline.path.Path.EventTrigger;
 import bline.path.Path.PathConstraints;
-import bline.path.Path.RotationTarget;
-import bline.path.Path.TranslationTarget;
 import bline.path.Path.Waypoint;
 import org.wpilib.math.geometry.Rotation2d;
 

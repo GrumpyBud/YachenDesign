@@ -1,7 +1,9 @@
 package first.robot;
 
+import first.robot.subsystems.Choreographer;
 import first.robot.subsystems.Choreographer.DriverRequest;
 import first.robot.subsystems.Choreographer.Position;
+import first.robot.subsystems.Choreographer.Source;
 import first.robot.subsystems.Choreographer.State;
 import first.robot.subsystems.claw.Claw;
 import org.littletonrobotics.junction.AutoLog;
@@ -28,7 +30,7 @@ final class Controls {
   @AutoLog
   static class ControllerInputs {
     public boolean teleopEnabled;
-    public boolean testEnabled;
+    public boolean utilityEnabled;
     public boolean connected;
     // Drive
     public double forward;
@@ -42,7 +44,7 @@ final class Controls {
     public boolean scorePosition;
     public boolean clawIntake;
     public boolean clawEject;
-    // Test mode
+    // Utility mode
     public boolean wheelRadiusTest;
     public boolean feedforwardTest;
   }
@@ -56,7 +58,7 @@ final class Controls {
   void updateInputs() {
     if (Constants.currentMode != Constants.Mode.REPLAY) {
       inputs.teleopEnabled = RobotState.isTeleopEnabled();
-      inputs.testEnabled = RobotState.isUtilityEnabled();
+      inputs.utilityEnabled = RobotState.isUtilityEnabled();
       inputs.connected = controller.isConnected();
       boolean c = inputs.connected;
       inputs.forward = c ? -controller.getLeftY() : 0;
@@ -79,31 +81,27 @@ final class Controls {
     return inputs.teleopEnabled;
   }
 
-  boolean testEnabled() {
-    return inputs.testEnabled;
+  boolean utilityEnabled() {
+    return inputs.utilityEnabled;
   }
 
   boolean connected() {
     return inputs.connected;
   }
 
-  /** Build this loop's request. Driver buttons only count while the driver has control. */
-  DriverRequest request(State state) {
+  /**
+   * Sends this loop's driver request to the Choreographer. Mechanism buttons go through the same
+   * source-checked requests as autonomous, so they only act while the driver has control.
+   */
+  void apply(State state, Choreographer robot) {
     if (state != State.DRIVER_CONTROL) {
       xLockReady = false;
       driverForwardReady = false;
       positionReady = false;
       clawReady = false;
-      return new DriverRequest(
-          0,
-          0,
-          0,
-          false,
-          false,
-          null,
-          Claw.Request.STOP,
-          inputs.wheelRadiusTest,
-          inputs.feedforwardTest);
+      robot.setDriverRequest(
+          new DriverRequest(0, 0, 0, false, false, inputs.wheelRadiusTest, inputs.feedforwardTest));
+      return;
     }
 
     // X-lock holds while the button stays down after a fresh press.
@@ -120,15 +118,15 @@ final class Controls {
       setDriverForward = true;
     }
 
-    Position position = null;
     if (!inputs.stow && !inputs.intakePosition && !inputs.scorePosition) {
       positionReady = true;
     } else if (positionReady) {
       positionReady = false;
-      position =
+      robot.requestPosition(
+          Source.DRIVER,
           inputs.scorePosition
               ? Position.SCORE
-              : inputs.intakePosition ? Position.INTAKE : Position.STOW;
+              : inputs.intakePosition ? Position.INTAKE : Position.STOW);
     }
 
     var claw = Claw.Request.STOP;
@@ -137,16 +135,17 @@ final class Controls {
     } else if (clawReady) {
       claw = inputs.clawEject ? Claw.Request.EJECT : Claw.Request.INTAKE;
     }
+    // Sent every loop, so releasing the trigger stops the rollers.
+    robot.requestClaw(Source.DRIVER, claw);
 
-    return new DriverRequest(
-        inputs.forward,
-        inputs.left,
-        inputs.rotation,
-        xLock,
-        setDriverForward,
-        position,
-        claw,
-        inputs.wheelRadiusTest,
-        inputs.feedforwardTest);
+    robot.setDriverRequest(
+        new DriverRequest(
+            inputs.forward,
+            inputs.left,
+            inputs.rotation,
+            xLock,
+            setDriverForward,
+            inputs.wheelRadiusTest,
+            inputs.feedforwardTest));
   }
 }

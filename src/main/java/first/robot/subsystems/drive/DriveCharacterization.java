@@ -70,7 +70,7 @@ public final class DriveCharacterization {
     if (!allowed) {
       armed = false;
       if (active != null) {
-        end("Stopped: Test mode or controller lost", false);
+        end("Stopped: Utility mode ended or controller lost", false);
       }
       // The new owner may already have requested drive output this cycle.
       return;

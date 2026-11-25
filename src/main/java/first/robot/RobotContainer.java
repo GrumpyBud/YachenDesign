@@ -2,6 +2,7 @@ package first.robot;
 
 import first.robot.auto.AutoRoutines;
 import first.robot.generated.TunerConstants;
+import first.robot.sim.SimGamePieces;
 import first.robot.subsystems.Choreographer;
 import first.robot.subsystems.Choreographer.State;
 import first.robot.subsystems.arm.Arm;
@@ -74,10 +75,10 @@ public final class RobotContainer {
         };
     configurationAlert.set(drive == null);
     Logger.recordOutput("Drive/Configured", drive != null);
-    autos = drive == null ? null : new AutoRoutines(drive);
     vision = drive == null ? null : createVision(drive);
     if (drive == null) {
       choreographer = null;
+      autos = null;
       subsystems = List.of();
       return;
     }
@@ -85,8 +86,15 @@ public final class RobotContainer {
     boolean sim = Constants.currentMode == Constants.Mode.SIM;
     var elevator = new Elevator(sim ? new ElevatorIOSim() : new ElevatorIO() {});
     var arm = new Arm(sim ? new ArmIOSim() : new ArmIO() {});
-    var claw = new Claw(sim ? new ClawIOSim() : new ClawIO() {});
+    var claw =
+        new Claw(
+            sim
+                ? new ClawIOSim(
+                    new SimGamePieces(
+                        drive::getSimPose, elevator::getPositionMeters, arm::getPositionRad))
+                : new ClawIO() {});
     choreographer = new Choreographer(drive, elevator, arm, claw);
+    autos = new AutoRoutines(drive, choreographer);
     subsystems = List.of(drive, elevator, arm, claw);
   }
 
@@ -121,10 +129,10 @@ public final class RobotContainer {
           choreographer.periodic(
               autos.updateInputs(),
               controls.teleopEnabled(),
-              controls.testEnabled(),
+              controls.utilityEnabled(),
               controls.connected());
       autos.periodic(state == State.AUTONOMOUS);
-      choreographer.setDriverRequest(controls.request(state));
+      controls.apply(state, choreographer);
     }
   }
 
